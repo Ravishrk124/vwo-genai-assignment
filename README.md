@@ -2,41 +2,45 @@
 
 A robust system that leverages AI agents to analyze corporate financial documents (such as quarterly reports) and generate comprehensive investment insights. This API allows users to upload a PDF document and receive a detailed analysis covering financial health, market position, risks, and a final investment recommendation.
 
+---
+
 ## System Architecture
 
 This project is built using **CrewAI**, a framework for orchestrating autonomous AI agents. The system follows a sequential process with two specialized agents:
 
-1.  **Financial Research Analyst**: This agent is responsible for reading the uploaded document, extracting key financial metrics, and creating a concise summary.
-2.  **Senior Investment Strategist**: This agent takes the summary from the first agent, performs an in-depth analysis, and formulates a strategic investment recommendation based on the user's query.
+1. **Financial Research Analyst**: Reads the uploaded document, extracts key financial metrics, and creates a concise summary.
+2. **Senior Investment Strategist**: Takes the summary, performs in-depth analysis, and formulates a strategic investment recommendation based on the user’s query.
 
-This multi-agent approach ensures a clear separation of concerns and produces a more detailed and accurate analysis.
+This multi-agent approach ensures a clear separation of concerns and produces more accurate insights.
 
 ---
 
 ## Bugs Found and Fixes Implemented
 
-The initial codebase contained numerous deterministic bugs, inefficient AI prompts, and critical environment incompatibilities. The following is a comprehensive list of the fixes implemented.
+The initial codebase had multiple bugs and inconsistencies. Key fixes include:
 
 ### 1. Environment & Dependencies (`requirements.txt`)
-* **Bug**: The project was fundamentally incompatible with the common system Python 3.9 due to modern syntax (`|` for type hints) used within the libraries. This caused a `TypeError` deep inside `crewai` even with older versions.
-* **Fix**: Re-architected the environment setup to use **Python 3.11**, which is compatible with modern AI libraries. This solved all underlying dependency and syntax conflicts.
-* **Bug**: The original `requirements.txt` was missing numerous essential libraries (`python-dotenv`, `uvicorn`, `pypdf`, `langchain-community`, etc.).
-* **Fix**: Created a new, stable `requirements.txt` with modern, compatible versions of all necessary libraries (`crewai`, `crewai-tools`, `langchain-google-genai`, etc.) for the Python 3.11 environment.
+- **Bug**: Python 3.9 incompatibility due to modern type-hint syntax → caused `TypeError` in CrewAI.
+- **Fix**: Migrated environment to **Python 3.11** for full compatibility.
+- **Bug**: Missing essential libraries (`python-dotenv`, `uvicorn`, `pypdf`, `langchain-community`, etc.).
+- **Fix**: Added a complete and stable `requirements.txt` with compatible versions (`crewai`, `crewai-tools`, `langchain-google-genai`, etc.).
 
 ### 2. Agent & Task Prompts (`agents.py`, `task.py`)
-* **Bug**: All agent prompts (role, goal, backstory) and task descriptions were satirical and instructed the AI to produce useless, fabricated output.
-* **Fix**: Completely rewrote the agent personas to be professional, expert-level analysts with clear, focused goals. Redefined the tasks into a logical, two-step workflow: (1) Extraction & Summarization, and (2) Analysis & Recommendation. This was the most critical fix for improving output quality.
+- **Bug**: Original prompts were satirical and produced irrelevant output.
+- **Fix**: Rewrote agent personas into professional analysts. Redesigned workflow into two steps:
+  1. Extraction & Summarization
+  2. Analysis & Recommendation
 
 ### 3. Core Logic (`main.py`)
-* **Bug**: The Crew was incorrectly configured with only one agent and task, ignoring the specialized roles defined in the codebase.
-* **Bug**: The file path for the uploaded document was not passed into the CrewAI workflow, meaning the document was never actually read or analyzed.
-* **Fix**: Re-architected the `Crew` to include both the `research_analyst` and `investment_strategist` agents in a sequential process. Correctly passed the `file_path` and `query` into the `crew.kickoff()` method's `inputs` dictionary.
+- **Bug**: Crew configured with only one agent, ignoring role separation.
+- **Bug**: File path of uploaded document was not passed, so it was never analyzed.
+- **Fix**: Implemented sequential Crew with both agents. Correctly passed `file_path` and `query` to `crew.kickoff()`.
 
 ### 4. Tooling (`tools.py`)
-* **Bug**: The PDF reading tool used an undefined `Pdf` class and would have crashed.
-* **Fix**: Replaced the faulty implementation with the standard and reliable `PyPDFLoader` from `langchain-community`.
-* **Bug**: The tool was not properly decorated for use by CrewAI agents.
-* **Fix**: Added the `@tool` decorator from `crewai-tools` to ensure the function is discoverable by the agents.
+- **Bug**: Used an undefined `Pdf` class → runtime crash.
+- **Fix**: Replaced with **`PyPDFLoader`** from `langchain-community`.
+- **Bug**: Tool not decorated for CrewAI agents.
+- **Fix**: Added `@tool` decorator from `crewai-tools`.
 
 ---
 
@@ -45,10 +49,64 @@ The initial codebase contained numerous deterministic bugs, inefficient AI promp
 Follow these steps to set up and run the project locally.
 
 ### Prerequisites
-* Python 3.11 (Installation via Homebrew on macOS is recommended: `brew install python@3.11`)
-* A Google AI API Key
+- Python **3.11**  
+- A **Google AI API Key**
 
 ### 1. Clone the Repository
 ```sh
-git clone [https://github.com/Ravishrk124/vwo-genai-assignment.git](https://github.com/Ravishrk124/vwo-genai-assignment.git)
+git clone https://github.com/Ravishrk124/vwo-genai-assignment.git
 cd vwo-genai-assignment
+```
+
+### 2. Create and Activate Virtual Environment
+```sh
+python3.11 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+```sh
+pip install -r requirements.txt
+```
+
+### 4. Configure Environment Variables
+Create a `.env` file in the root directory:
+```
+GOOGLE_API_KEY="YOUR_API_KEY_HERE"
+```
+
+### 5. Run the Application
+```sh
+uvicorn main:app --reload
+```
+The API will be available at: **http://127.0.0.1:8000**
+
+---
+
+## API Documentation
+
+Interactive docs available at: **http://127.0.0.1:8000/docs**
+
+### Endpoint: `POST /analyze`
+
+Uploads a financial PDF, analyzes it, and returns investment insights.
+
+**Parameters:**
+- `query` *(string, optional)* – Custom analysis query  
+  Default: `"Analyze this financial document for investment insights and provide a recommendation."`
+- `file` *(file upload, required)* – Financial document in PDF format  
+
+**Example curl request:**
+```sh
+curl -X POST "http://127.0.0.1:8000/analyze"      -H "accept: application/json"      -H "Content-Type: multipart/form-data"      -F "query=What is the outlook for Tesla's energy business based on this report?"      -F "file=@/path/to/your/TSLA-Q2-2025-Update.pdf"
+```
+
+**Successful Response (200 OK):**
+```json
+{
+  "status": "success",
+  "query": "What is the outlook for Tesla's energy business based on this report?",
+  "analysis_result": "...",
+  "file_processed": "TSLA-Q2-2025-Update.pdf"
+}
+```
